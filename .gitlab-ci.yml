@@ -1,0 +1,45 @@
+stages:
+  - lint
+  - test
+  - security
+  - build
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+lint_job:
+  stage: lint
+  image: python:3.12
+  script:
+    - pip install flake8 black
+    - black --check app/ tests/
+    - flake8 app/ tests/
+
+test_job:
+  stage: test
+  image: python:3.12
+  script:
+    - pip install -r requirements.txt pytest pytest-cov
+    - pytest --cov=app tests/
+
+trivy_security:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy fs --severity HIGH,CRITICAL .
+
+docker_build:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
